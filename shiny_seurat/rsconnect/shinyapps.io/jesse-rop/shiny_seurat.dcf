@@ -1,0 +1,12 @@
+name: shiny_seurat
+title: shiny_seurat
+username:
+account: jesse-rop
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1659762
+bundleId: 2730239
+url: https://jesse-rop.shinyapps.io/shiny_seurat/
+when: 1579084232.85494
+asMultiple: FALSE
+asStatic: FALSE
