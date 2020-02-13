@@ -79,13 +79,14 @@ pbmc <- FindClusters(pbmc, resolution = 0.5)
 # Look at cluster IDs of the first 5 cells
 head(Idents(pbmc), 5)
 
-a = paste(1,10, sep = ":")
-pbmc <- RunUMAP(pbmc, dims = a)
+#a = paste(1,10, sep = ":")
+pbmc <- RunUMAP(pbmc, dims = 1:10)
 
 DimPlot(pbmc, reduction = "umap")
 
 saveRDS(pbmc, file = "D:/GCRF_UoG/tuitorials/seurat/output/pbmc_tutorial.rds")
 
+str(readRDS("D:/GCRF_UoG/tuitorials/seurat/output/pbmc_tutorial.rds"))
 # find all markers of cluster 1
 cluster1.markers <- FindMarkers(pbmc, ident.1 = 1, min.pct = 0.25)
 head(cluster1.markers, n = 5)
