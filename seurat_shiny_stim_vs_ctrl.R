@@ -1,35 +1,69 @@
 library(Seurat)
 library(cowplot)
-library(SeuratData)
+#library(SeuratData)
 library(ggplot2)
 library(shiny)
 library(shinythemes)
 library(plotly)
 
+all_immune_genes = readRDS("/home/jr345y/scrna_shiny/git_seurat/seurat_practice_files/all_immune_genes.rds")
+immune.combined.umap.list = readRDS("/home/jr345y/scrna_shiny/git_seurat/seurat_practice_files/immune.combined.umap.list.rds")
+immune.combined.clusters.tables = readRDS("/home/jr345y/scrna_shiny/git_seurat/seurat_practice_files/immune.combined.clusters.tables.rds")
 
-InstallData("ifnb") 
+if (!(all(exists("all_immune_genes"), exists("immune.combined.umap.list"), exists("immune.combined.clusters.tables")))) {
+  InstallData("ifnb") 
+  
+  #data("ifnb.SeuratData::ifnb")
+  ifnb.list = SplitObject(ifnb.SeuratData::ifnb, split.by = "stim")
+  
+  ifnb.list = lapply(ifnb.list, function(x) { 
+    x = NormalizeData(x)
+    x = FindVariableFeatures(x, selection.method = "vst", nfeatures = 2000)
+  } )
+  
+  immune.anchors = FindIntegrationAnchors(object.list = ifnb.list, dims = 1:20)
+  
+  immune.combined = IntegrateData(anchorset = immune.anchors, dims = 1:20)
+  
+  #Running a single integrated analysis on all cells from the different conditions
+  
+  DefaultAssay(immune.combined) = "integrated"
+  
+  ##Running the standard workflow
+  immune.combined = ScaleData(immune.combined, verbose = F)
+  immune.combined = RunPCA(immune.combined, npcs = 30, verbose = F)
+  
+  all_immune_genes = row.names(immune.combined)
+  saveRDS(all_immune_genes, "/home/jr345y/scrna_shiny/git_seurat/seurat_practice_files/all_immune_genes.rds")
+  
 
-#data("ifnb.SeuratData::ifnb")
-ifnb.list = SplitObject(ifnb.SeuratData::ifnb, split.by = "stim")
-
-ifnb.list = lapply(ifnb.list, function(x) { 
-  x = NormalizeData(x)
-  x = FindVariableFeatures(x, selection.method = "vst", nfeatures = 2000)
-} )
-
-immune.anchors = FindIntegrationAnchors(object.list = ifnb.list, dims = 1:20)
-
-immune.combined = IntegrateData(anchorset = immune.anchors, dims = 1:20)
-
-#Running a single integrated analysis on all cells from the different conditions
-
-DefaultAssay(immune.combined) = "integrated"
-
-##Running the standard workflow
-immune.combined = ScaleData(immune.combined, verbose = F)
-immune.combined = RunPCA(immune.combined, npcs = 30, verbose = F)
-
-all_immune_genes = row.names(immune.combined)
+  ##tSNE and clustering
+  immune.combined.umap.list = lapply(dim1:dim2, function(x) {
+    a = RunUMAP(immune.combined, reduction = "pca", dims = 1:x)
+    lapply(dim1:dim2, function(x) {
+      b = FindNeighbors(a, reduction = "pca", dims = 1:x)
+      lapply(seq(res1, res2, by = 0.1), function(x) FindClusters(b, resolution = x))
+    })
+  })
+  
+  saveRDS(immune.combined.umap.list, "/home/jr345y/scrna_shiny/git_seurat/seurat_practice_files/immune.combined.umap.list.rds")
+  
+  immune.combined.clusters.tables = lapply(immune.combined.umap.list, function(x) { 
+    lapply(x, function(x) {
+      lapply(x, function(x){
+        DefaultAssay(x) = "RNA"
+        #cluster.markers = lapply(0:(length(unique(x$seurat_clusters))-1), function(y) {
+        cluster.markers = lapply(6:7, function(y) {
+          FindConservedMarkers(x, ident.1 = y, grouping.var = "stim")
+          
+        })
+      }) 
+    }) 
+  })
+  
+  saveRDS(immune.combined.clusters.tables, "/home/jr345y/scrna_shiny/git_seurat/seurat_practice_files/immune.combined.clusters.tables.rds")
+  
+}
 
 cell_types = c( "pDC", "Eryth", "Mk", "DC", "CD14 Mono", "CD16 Mono", "B Activated", "B", "CD8 T", "NK", "T activated", "CD4 Naive T", "CD4 Memory T")
 dim1 = 19
@@ -37,42 +71,6 @@ dim2 = 20
 
 res1 = 0.4
 res2 = 0.5
-
-##tSNE and clustering
-immune.combined.umap.list = lapply(dim1:dim2, function(x) {
-  a = RunUMAP(immune.combined, reduction = "pca", dims = 1:x)
-  lapply(dim1:dim2, function(x) {
-    b = FindNeighbors(a, reduction = "pca", dims = 1:x)
-    lapply(seq(res1, res2, by = 0.1), function(x) FindClusters(b, resolution = x))
-  })
-  })
-
-save(immune.combined.umap.list, file="D://GCRF_UoG/tuitorials/git_seurat/seurat_practice/immune.combined.umap.list.RData")
-load("D://GCRF_UoG/tuitorials/git_seurat/seurat_practice_files/immune.combined.umap.list.RData")
-
-immune.combined.clusters.tables = lapply(immune.combined.umap.list, function(x) { 
-  lapply(x, function(x) {
-    lapply(x, function(x){
-      DefaultAssay(x) = "RNA"
-      #cluster.markers = lapply(0:(length(unique(x$seurat_clusters))-1), function(y) {
-      cluster.markers = lapply(6:7, function(y) {
-      FindConservedMarkers(x, ident.1 = y, grouping.var = "stim")
-        
-      })
-    }) 
-    }) 
-  })
-
-save(immune.combined.clusters.tables, file="D://GCRF_UoG/tuitorials/git_seurat/seurat_practice/clusters_table.RData")
-load("D://GCRF_UoG/tuitorials/git_seurat/seurat_practice_files/clusters_table.RData")
-
-#tables_marker_interpretor = list(list(list(1,2), list(3,4)), list(list(5,6), list(7,8)))
-
-#immune.combined = RunUMAP(immune.combined, reduction = "pca", dims = 1:20)
-
-#immune.combined = FindNeighbors(immune.combined, reduction = "pca", dims = 1:10)
-#immune.combined.clusters = FindClusters(immune.combined.umap.list[[1]][[1]][[1]], resolution = 0.5)
-
 ##visualization
 
 
